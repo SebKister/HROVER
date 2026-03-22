@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hrover"
+version = "0.1.0"
+description = "Overlay Garmin GPX heart rate data onto video files"
+requires-python = ">=3.10"
+dependencies = [
+    "gpxpy>=1.6.0",
+    "opencv-python>=4.8.0",
+    "numpy>=1.24.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+gui = ["PyQt6>=6.5.0"]
+
+[project.scripts]
+hrover = "hrover.cli:main"
+
+[project.gui-scripts]
+hrover-gui = "hrover.gui:launch_gui"
+
+[tool.setuptools.packages.find]
+where = ["src"]
