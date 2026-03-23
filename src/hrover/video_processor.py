@@ -100,7 +100,7 @@ QUALITY_LABELS = {
     "lossless": "Lossless",
 }
 
-_nvenc_available: Optional[bool] = None  # cached result
+_nvenc_available: Optional[list[str]] = None  # cached result
 
 
 def detect_nvenc_encoders() -> list[str]:
@@ -110,8 +110,12 @@ def detect_nvenc_encoders() -> list[str]:
     ffmpeg is not installed or no NVENC encoders are found.
     """
     global _nvenc_available
+    if _nvenc_available is not None:
+        return _nvenc_available
+
     if not shutil.which("ffmpeg"):
-        return []
+        _nvenc_available = []
+        return _nvenc_available
 
     nvenc_keys = [k for k in ENCODERS if k.endswith("_nvenc")]
     available = []
@@ -128,7 +132,8 @@ def detect_nvenc_encoders() -> list[str]:
                 available.append(key)
         except (subprocess.TimeoutExpired, FileNotFoundError):
             pass
-    return available
+    _nvenc_available = available
+    return _nvenc_available
 
 
 @dataclass
