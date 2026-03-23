@@ -100,7 +100,7 @@ QUALITY_LABELS = {
     "lossless": "Lossless",
 }
 
-_nvenc_available: Optional[list[str]] = None  # cached result
+_nvenc_cache: Optional[list[str]] = None  # cached result
 
 
 def detect_nvenc_encoders() -> list[str]:
@@ -109,31 +109,39 @@ def detect_nvenc_encoders() -> list[str]:
     Probes ffmpeg once and caches the result.  Returns an empty list when
     ffmpeg is not installed or no NVENC encoders are found.
     """
-    global _nvenc_available
-    if _nvenc_available is not None:
-        return _nvenc_available
+    global _nvenc_cache
+    if _nvenc_cache is not None:
+        return _nvenc_cache
 
     if not shutil.which("ffmpeg"):
-        _nvenc_available = []
-        return _nvenc_available
+        _nvenc_cache = []
+        return _nvenc_cache
 
-    nvenc_keys = [k for k in ENCODERS if k.endswith("_nvenc")]
-    available = []
-    for key in nvenc_keys:
-        codec = ENCODERS[key]["codec"]
-        try:
-            result = subprocess.run(
-                ["ffmpeg", "-hide_banner", "-f", "lavfi", "-i", "nullsrc",
-                 "-t", "0.01", "-c:v", codec, "-f", "null", "-"],
-                capture_output=True,
-                timeout=10,
-            )
-            if result.returncode == 0:
-                available.append(key)
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            pass
-    _nvenc_available = available
-    return _nvenc_available
+    try:
+        result = subprocess.run(
+            ["ffmpeg", "-hide_banner", "-encoders"],
+            capture_output=True,
+            timeout=5,
+        )
+        output = result.stdout.decode(errors="replace")
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        _nvenc_cache = []
+        return _nvenc_cache
+
+    # Build a set of codec names reported by ffmpeg (e.g. "h264_nvenc", "hevc_nvenc")
+    # Encoder lines look like: " V..... h264_nvenc           NVIDIA NVENC H.264 encoder"
+    # The capability string is exactly 6 characters starting with 'V' for video encoders.
+    available_codecs: set[str] = set()
+    for line in output.splitlines():
+        parts = line.split()
+        if len(parts) >= 2 and len(parts[0]) == 6 and parts[0][0] == "V":
+            available_codecs.add(parts[1])
+
+    _nvenc_cache = [
+        key for key in ENCODERS
+        if key.endswith("_nvenc") and ENCODERS[key]["codec"] in available_codecs
+    ]
+    return _nvenc_cache
 
 
 @dataclass
