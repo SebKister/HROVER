@@ -23,6 +23,7 @@ class OverlayConfig:
     bpm_range: tuple[int, int] = (40, 200)  # y-axis range for graph
     padding: int = 15
     label_font_scale: float = 0.5
+    show_graph: bool = True
     show_map: bool = True
     map_size: int = 150  # side length of the square mini-map in pixels
 
@@ -67,12 +68,17 @@ def draw_hr_overlay(
         label_text, cv2.FONT_HERSHEY_SIMPLEX, config.label_font_scale, 1
     )
 
-    # Total overlay area: BPM on top, graph below, optional map at bottom
+    # Total overlay area: BPM on top, optional graph below, optional map at bottom
     bpm_area_height = bpm_h + label_h + 10
-    total_height = bpm_area_height + config.graph_height + config.padding * 3
+    total_height = bpm_area_height + config.padding * 2
+    if config.show_graph:
+        total_height += config.graph_height + config.padding
     if show_map:
         total_height += config.map_size + config.padding
-    total_width = max(config.graph_width, bpm_w + label_w + 15) + config.padding * 2
+    if config.show_graph:
+        total_width = max(config.graph_width, bpm_w + label_w + 15) + config.padding * 2
+    else:
+        total_width = bpm_w + label_w + 15 + config.padding * 2
     if show_map:
         total_width = max(total_width, config.map_size + config.padding * 2)
 
@@ -116,17 +122,21 @@ def draw_hr_overlay(
         )
 
     # Draw HR graph
-    graph_x = x + config.padding
     graph_y = y + config.padding + bpm_area_height + config.padding
-    _draw_hr_graph(
-        frame, hr_window, zone_config, config,
-        graph_x, graph_y, config.graph_width, config.graph_height
-    )
+    if config.show_graph:
+        graph_x = x + config.padding
+        _draw_hr_graph(
+            frame, hr_window, zone_config, config,
+            graph_x, graph_y, config.graph_width, config.graph_height
+        )
 
     # Draw mini-map
     if show_map:
         map_x = x + (total_width - config.map_size) // 2
-        map_y = graph_y + config.graph_height + config.padding
+        if config.show_graph:
+            map_y = graph_y + config.graph_height + config.padding
+        else:
+            map_y = graph_y
         _draw_map(frame, gps_timeline, current_time, config, map_x, map_y,
                   trace_start=trace_start, trace_end=trace_end)
 
