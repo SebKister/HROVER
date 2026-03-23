@@ -236,9 +236,17 @@ def process_video(
             ffmpeg_proc.stdin.close()
             ffmpeg_proc.wait()
             if ffmpeg_proc.returncode != 0:
-                raise RuntimeError(
-                    f"ffmpeg encoding failed with exit code {ffmpeg_proc.returncode}"
-                )
+                stderr_output = None
+                try:
+                    stderr_bytes = ffmpeg_proc.stderr.read()
+                    if stderr_bytes:
+                        stderr_output = stderr_bytes.decode(errors="replace")
+                except Exception:
+                    pass
+                msg = f"ffmpeg encoding failed with exit code {ffmpeg_proc.returncode}."
+                if stderr_output:
+                    msg += f" ffmpeg stderr:\n{stderr_output}"
+                raise RuntimeError(msg)
         if writer is not None:
             writer.release()
 
@@ -271,7 +279,7 @@ def _start_ffmpeg_writer(
         "-pix_fmt", "yuv420p",
         str(output_path),
     ]
-    return subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    return subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
 
 
 def auto_scale_overlay(config: OverlayConfig, video_width: int, video_height: int):
