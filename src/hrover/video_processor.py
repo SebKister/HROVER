@@ -60,6 +60,37 @@ ENCODERS: dict[str, dict] = {
             "lossless": ["-lossless", "1", "-cpu-used", "4"],
         },
     },
+    # --- NVIDIA GPU (NVENC) encoders ---
+    "h264_nvenc": {
+        "label": "H.264 NVIDIA GPU (h264_nvenc)",
+        "codec": "h264_nvenc",
+        "quality": {
+            "low":      ["-rc", "vbr", "-cq", "28", "-preset", "p4"],
+            "medium":   ["-rc", "vbr", "-cq", "23", "-preset", "p4"],
+            "high":     ["-rc", "vbr", "-cq", "18", "-preset", "p6"],
+            "lossless": ["-preset", "lossless"],
+        },
+    },
+    "h265_nvenc": {
+        "label": "H.265/HEVC NVIDIA GPU (hevc_nvenc)",
+        "codec": "hevc_nvenc",
+        "quality": {
+            "low":      ["-rc", "vbr", "-cq", "32", "-preset", "p4"],
+            "medium":   ["-rc", "vbr", "-cq", "28", "-preset", "p4"],
+            "high":     ["-rc", "vbr", "-cq", "22", "-preset", "p6"],
+            "lossless": ["-preset", "lossless"],
+        },
+    },
+    "av1_nvenc": {
+        "label": "AV1 NVIDIA GPU (av1_nvenc, RTX 40+)",
+        "codec": "av1_nvenc",
+        "quality": {
+            "low":      ["-rc", "vbr", "-cq", "45", "-preset", "p4"],
+            "medium":   ["-rc", "vbr", "-cq", "35", "-preset", "p4"],
+            "high":     ["-rc", "vbr", "-cq", "25", "-preset", "p6"],
+            "lossless": ["-rc", "constqp", "-qp", "0"],
+        },
+    },
 }
 
 QUALITY_LABELS = {
@@ -68,6 +99,36 @@ QUALITY_LABELS = {
     "high":     "High (larger file)",
     "lossless": "Lossless",
 }
+
+_nvenc_available: Optional[bool] = None  # cached result
+
+
+def detect_nvenc_encoders() -> list[str]:
+    """Return a list of NVENC encoder keys available on this machine.
+
+    Probes ffmpeg once and caches the result.  Returns an empty list when
+    ffmpeg is not installed or no NVENC encoders are found.
+    """
+    global _nvenc_available
+    if not shutil.which("ffmpeg"):
+        return []
+
+    nvenc_keys = [k for k in ENCODERS if k.endswith("_nvenc")]
+    available = []
+    for key in nvenc_keys:
+        codec = ENCODERS[key]["codec"]
+        try:
+            result = subprocess.run(
+                ["ffmpeg", "-hide_banner", "-f", "lavfi", "-i", "nullsrc",
+                 "-t", "0.01", "-c:v", codec, "-f", "null", "-"],
+                capture_output=True,
+                timeout=10,
+            )
+            if result.returncode == 0:
+                available.append(key)
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            pass
+    return available
 
 
 @dataclass
