@@ -195,7 +195,33 @@ def process_video(
             )
 
             if ffmpeg_proc is not None:
-                ffmpeg_proc.stdin.write(frame.tobytes())
+                try:
+                    ffmpeg_proc.stdin.write(frame.tobytes())
+                except BrokenPipeError as exc:
+                    # ffmpeg exited early (e.g. invalid codec/args, disk full, etc.).
+                    # Ensure the process is cleaned up and surface a helpful error.
+                    try:
+                        ffmpeg_proc.stdin.close()
+                    except Exception:
+                        # Ignore errors while closing a broken pipe.
+                        pass
+                    # Wait for ffmpeg to exit and capture stderr if available.
+                    try:
+                        ffmpeg_proc.wait()
+                    except Exception:
+                        pass
+                    stderr_output = None
+                    if getattr(ffmpeg_proc, "stderr", None) is not None:
+                        try:
+                            stderr_bytes = ffmpeg_proc.stderr.read()
+                            if stderr_bytes:
+                                stderr_output = stderr_bytes.decode(errors="replace")
+                        except Exception:
+                            stderr_output = None
+                    msg = "ffmpeg exited unexpectedly while writing video frames."
+                    if stderr_output:
+                        msg += f" ffmpeg stderr:\n{stderr_output}"
+                    raise RuntimeError(msg) from exc
             else:
                 writer.write(frame)
 
