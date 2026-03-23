@@ -100,6 +100,15 @@ QUALITY_LABELS = {
     "lossless": "Lossless",
 }
 
+RESOLUTIONS: dict[str, dict] = {
+    "source": {"label": "Source (keep original)", "scale": None},
+    "3840":   {"label": "4K (3840×2160)",         "scale": "3840:-2"},
+    "1920":   {"label": "1080p (1920×1080)",       "scale": "1920:-2"},
+    "1280":   {"label": "720p (1280×720)",         "scale": "1280:-2"},
+    "854":    {"label": "480p (854×480)",          "scale": "854:-2"},
+    "640":    {"label": "360p (640×360)",          "scale": "640:-2"},
+}
+
 _nvenc_cache: Optional[list[str]] = None  # cached result
 
 
@@ -149,6 +158,17 @@ class EncoderConfig:
     """Video encoder and quality settings."""
     encoder: str = "h264"
     quality: str = "medium"
+    resolution: str = "source"
+
+    def get_scale_filter(self) -> str | None:
+        """Return the ffmpeg scale filter string, or None to keep source resolution."""
+        try:
+            return RESOLUTIONS[self.resolution]["scale"]
+        except KeyError as exc:
+            supported = ", ".join(sorted(RESOLUTIONS.keys()))
+            raise ValueError(
+                f"Unknown resolution '{self.resolution}'. Supported: {supported}"
+            ) from exc
 
     def get_ffmpeg_args(self) -> list[str]:
         """Return the ffmpeg codec and quality arguments.
@@ -310,6 +330,10 @@ def process_video(
             if progress_callback and frame_idx % 30 == 0:
                 progress_callback(frame_idx, total_frames)
 
+        # All frames written — signal 100% before ffmpeg finalisation blocks.
+        if progress_callback:
+            progress_callback(frame_idx, total_frames)
+
     finally:
         cap.release()
         if ffmpeg_proc is not None:
@@ -330,10 +354,6 @@ def process_video(
         if writer is not None:
             writer.release()
 
-    # Final progress update
-    if progress_callback:
-        progress_callback(frame_idx, total_frames)
-
     # Mux audio from original video
     final_path = _mux_audio(video_path, temp_output, output_path)
     return final_path
@@ -347,6 +367,9 @@ def _start_ffmpeg_writer(
     encoder_config: EncoderConfig,
 ) -> subprocess.Popen:
     """Start an ffmpeg subprocess that reads raw BGR frames from stdin and encodes them."""
+    scale_filter = encoder_config.get_scale_filter()
+    vf_args = ["-vf", f"scale={scale_filter}"] if scale_filter else []
+
     cmd = [
         "ffmpeg", "-y",
         "-f", "rawvideo",
@@ -355,6 +378,7 @@ def _start_ffmpeg_writer(
         "-pix_fmt", "bgr24",
         "-r", str(fps),
         "-i", "pipe:0",
+        *vf_args,
         *encoder_config.get_ffmpeg_args(),
         "-pix_fmt", "yuv420p",
         str(output_path),

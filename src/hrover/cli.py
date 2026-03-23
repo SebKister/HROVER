@@ -10,7 +10,7 @@ from .gpx_parser import parse_gpx_to_timeline
 from .hr_data import HRZoneConfig
 from .overlay import OverlayConfig
 from .sync import compute_offset, get_video_creation_time
-from .video_processor import ENCODERS, QUALITY_LABELS, EncoderConfig, process_video
+from .video_processor import ENCODERS, QUALITY_LABELS, RESOLUTIONS, EncoderConfig, process_video
 
 
 def _progress_bar(current: int, total: int):
@@ -82,6 +82,15 @@ def main(argv: list[str] | None = None):
         ),
     )
     parser.add_argument(
+        "--resolution", default="source",
+        choices=list(RESOLUTIONS.keys()),
+        metavar="RESOLUTION",
+        help=(
+            "Output resolution (default: source — keep original). "
+            "Choices: " + ", ".join(f"{k} ({v['label']})" for k, v in RESOLUTIONS.items())
+        ),
+    )
+    parser.add_argument(
         "--version", action="version", version=f"%(prog)s {__version__}",
     )
 
@@ -141,14 +150,15 @@ def main(argv: list[str] | None = None):
         opacity=args.opacity,
         graph_duration=args.graph_duration,
     )
-    encoder_config = EncoderConfig(encoder=args.encoder, quality=args.quality)
+    encoder_config = EncoderConfig(encoder=args.encoder, quality=args.quality, resolution=args.resolution)
 
     # Process
     print(f"\nProcessing video: {video_path}")
     print(f"Output: {output_path}")
     print(
         f"Encoder: {ENCODERS[args.encoder]['label']}, "
-        f"Quality: {QUALITY_LABELS[args.quality]}"
+        f"Quality: {QUALITY_LABELS[args.quality]}, "
+        f"Resolution: {RESOLUTIONS[args.resolution]['label']}"
     )
 
     try:

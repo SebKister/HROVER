@@ -51,6 +51,7 @@ from .sync import compute_offset, frame_to_utc, get_video_creation_time
 from .video_processor import (
     ENCODERS,
     QUALITY_LABELS,
+    RESOLUTIONS,
     EncoderConfig,
     auto_scale_overlay,
     process_video,
@@ -325,6 +326,15 @@ class SettingsPanel(QWidget):
         row.addWidget(self.quality_combo)
         el.addLayout(row)
 
+        # Resolution
+        row = QHBoxLayout()
+        row.addWidget(QLabel("Resolution:"))
+        self.resolution_combo = QComboBox()
+        for key, info in RESOLUTIONS.items():
+            self.resolution_combo.addItem(info["label"], userData=key)
+        row.addWidget(self.resolution_combo)
+        el.addLayout(row)
+
         self._export_btn = QPushButton("Export Video")
         self._export_btn.setEnabled(False)
         self._export_btn.clicked.connect(lambda: self.export_requested.emit())
@@ -389,6 +399,7 @@ class SettingsPanel(QWidget):
         return EncoderConfig(
             encoder=self.encoder_combo.currentData(),
             quality=self.quality_combo.currentData(),
+            resolution=self.resolution_combo.currentData(),
         )
 
     # --- Private methods ---
