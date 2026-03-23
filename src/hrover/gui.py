@@ -319,7 +319,9 @@ class SettingsPanel(QWidget):
         self.quality_combo = QComboBox()
         for key, label in QUALITY_LABELS.items():
             self.quality_combo.addItem(label, userData=key)
-        self.quality_combo.setCurrentIndex(1)  # default: medium
+        medium_index = self.quality_combo.findData("medium")
+        if medium_index != -1:
+            self.quality_combo.setCurrentIndex(medium_index)  # default: medium
         row.addWidget(self.quality_combo)
         el.addLayout(row)
 
