@@ -10,7 +10,7 @@ from .gpx_parser import parse_gpx_to_timeline
 from .hr_data import HRZoneConfig
 from .overlay import OverlayConfig
 from .sync import compute_offset, get_video_creation_time
-from .video_processor import process_video
+from .video_processor import ENCODERS, QUALITY_LABELS, EncoderConfig, process_video
 
 
 def _progress_bar(current: int, total: int):
@@ -62,6 +62,24 @@ def main(argv: list[str] | None = None):
     parser.add_argument(
         "--no-audio", action="store_true",
         help="Skip audio muxing (faster, but output has no audio)",
+    )
+    parser.add_argument(
+        "--encoder", default="h264",
+        choices=list(ENCODERS.keys()),
+        metavar="ENCODER",
+        help=(
+            "Video encoder for output (default: h264). "
+            "Choices: " + ", ".join(f"{k} ({v['label']})" for k, v in ENCODERS.items())
+        ),
+    )
+    parser.add_argument(
+        "--quality", default="medium",
+        choices=list(QUALITY_LABELS.keys()),
+        metavar="QUALITY",
+        help=(
+            "Encoding quality preset (default: medium). "
+            "Choices: " + ", ".join(f"{k} — {v}" for k, v in QUALITY_LABELS.items())
+        ),
     )
     parser.add_argument(
         "--version", action="version", version=f"%(prog)s {__version__}",
@@ -123,10 +141,15 @@ def main(argv: list[str] | None = None):
         opacity=args.opacity,
         graph_duration=args.graph_duration,
     )
+    encoder_config = EncoderConfig(encoder=args.encoder, quality=args.quality)
 
     # Process
     print(f"\nProcessing video: {video_path}")
     print(f"Output: {output_path}")
+    print(
+        f"Encoder: {ENCODERS[args.encoder]['label']}, "
+        f"Quality: {QUALITY_LABELS[args.quality]}"
+    )
 
     try:
         final_path = process_video(
@@ -138,6 +161,7 @@ def main(argv: list[str] | None = None):
             overlay_config=overlay_config,
             zone_config=zone_config,
             progress_callback=_progress_bar,
+            encoder_config=encoder_config,
         )
         print(f"\nDone! Output saved to: {final_path}")
     except RuntimeError as e:

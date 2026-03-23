@@ -48,7 +48,13 @@ from .gpx_parser import parse_gpx_to_timeline
 from .hr_data import HRTimeline, HRZoneConfig
 from .overlay import OverlayConfig, draw_hr_overlay
 from .sync import compute_offset, frame_to_utc, get_video_creation_time
-from .video_processor import auto_scale_overlay, process_video
+from .video_processor import (
+    ENCODERS,
+    QUALITY_LABELS,
+    EncoderConfig,
+    auto_scale_overlay,
+    process_video,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -298,6 +304,27 @@ class SettingsPanel(QWidget):
         export_group = QGroupBox("Export")
         el = QVBoxLayout(export_group)
 
+        # Encoder
+        row = QHBoxLayout()
+        row.addWidget(QLabel("Encoder:"))
+        self.encoder_combo = QComboBox()
+        for key, info in ENCODERS.items():
+            self.encoder_combo.addItem(info["label"], userData=key)
+        el.addLayout(row)
+        row.addWidget(self.encoder_combo)
+
+        # Quality
+        row = QHBoxLayout()
+        row.addWidget(QLabel("Quality:"))
+        self.quality_combo = QComboBox()
+        for key, label in QUALITY_LABELS.items():
+            self.quality_combo.addItem(label, userData=key)
+        medium_index = self.quality_combo.findData("medium")
+        if medium_index != -1:
+            self.quality_combo.setCurrentIndex(medium_index)  # default: medium
+        row.addWidget(self.quality_combo)
+        el.addLayout(row)
+
         self._export_btn = QPushButton("Export Video")
         self._export_btn.setEnabled(False)
         self._export_btn.clicked.connect(lambda: self.export_requested.emit())
@@ -358,6 +385,12 @@ class SettingsPanel(QWidget):
     def get_manual_offset(self) -> float:
         return self.offset_spin.value()
 
+    def get_encoder_config(self) -> EncoderConfig:
+        return EncoderConfig(
+            encoder=self.encoder_combo.currentData(),
+            quality=self.quality_combo.currentData(),
+        )
+
     # --- Private methods ---
 
     def _browse_video(self):
@@ -389,7 +422,7 @@ class ProcessingThread(QThread):
     error = pyqtSignal(str)
 
     def __init__(self, video_path, output_path, hr_timeline, video_start,
-                 offset, overlay_config, zone_config):
+                 offset, overlay_config, zone_config, encoder_config=None):
         super().__init__()
         self._video_path = video_path
         self._output_path = output_path
@@ -398,6 +431,7 @@ class ProcessingThread(QThread):
         self._offset = offset
         self._overlay_config = replace(overlay_config)  # fresh copy
         self._zone_config = zone_config
+        self._encoder_config = encoder_config
 
     def run(self):
         try:
@@ -410,6 +444,7 @@ class ProcessingThread(QThread):
                 overlay_config=self._overlay_config,
                 zone_config=self._zone_config,
                 progress_callback=self._on_progress,
+                encoder_config=self._encoder_config,
             )
             self.finished_ok.emit(str(result))
         except Exception as e:
@@ -642,6 +677,7 @@ class HROverMainWindow(QMainWindow):
         total_offset = self._auto_offset + timedelta(seconds=manual_offset)
         overlay_config = self._settings.get_overlay_config()
         zone_config = self._settings.get_zone_config()
+        encoder_config = self._settings.get_encoder_config()
 
         self._settings.set_status("Exporting...")
         self._settings.set_export_enabled(False)
@@ -655,6 +691,7 @@ class HROverMainWindow(QMainWindow):
             offset=total_offset,
             overlay_config=overlay_config,
             zone_config=zone_config,
+            encoder_config=encoder_config,
         )
         self._processing_thread.progress.connect(self._settings.set_progress)
         self._processing_thread.finished_ok.connect(self._on_export_done)
