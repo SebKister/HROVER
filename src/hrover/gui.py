@@ -270,15 +270,34 @@ class SettingsPanel(QWidget):
         row.addWidget(self._opacity_value)
         ol.addLayout(row)
 
-        # Graph duration
+        # BPM font size
         row = QHBoxLayout()
-        row.addWidget(QLabel("Graph (s):"))
+        row.addWidget(QLabel("BPM font size:"))
+        self.bpm_font_scale_spin = QDoubleSpinBox()
+        self.bpm_font_scale_spin.setRange(0.5, 5.0)
+        self.bpm_font_scale_spin.setSingleStep(0.1)
+        self.bpm_font_scale_spin.setDecimals(1)
+        self.bpm_font_scale_spin.setValue(1.8)
+        self.bpm_font_scale_spin.valueChanged.connect(lambda: self.settings_changed.emit())
+        row.addWidget(self.bpm_font_scale_spin)
+        ol.addLayout(row)
+
+        # Show graph
+        self.show_graph_check = QCheckBox("Show HR graph")
+        self.show_graph_check.setChecked(True)
+        self.show_graph_check.stateChanged.connect(lambda: self.settings_changed.emit())
+        self.show_graph_check.stateChanged.connect(self._on_show_graph_changed)
+        ol.addWidget(self.show_graph_check)
+
+        # Graph duration
+        self._graph_duration_row = QHBoxLayout()
+        self._graph_duration_row.addWidget(QLabel("Graph (s):"))
         self.graph_duration_spin = QSpinBox()
         self.graph_duration_spin.setRange(10, 300)
         self.graph_duration_spin.setValue(60)
         self.graph_duration_spin.valueChanged.connect(lambda: self.settings_changed.emit())
-        row.addWidget(self.graph_duration_spin)
-        ol.addLayout(row)
+        self._graph_duration_row.addWidget(self.graph_duration_spin)
+        ol.addLayout(self._graph_duration_row)
 
         # Offset adjustment
         row = QHBoxLayout()
@@ -371,10 +390,16 @@ class SettingsPanel(QWidget):
         self._status_label.setText(text)
         self._progress_bar.setVisible(False)
 
+    def _on_show_graph_changed(self):
+        enabled = self.show_graph_check.isChecked()
+        self.graph_duration_spin.setEnabled(enabled)
+
     def get_overlay_config(self) -> OverlayConfig:
         return OverlayConfig(
             position=self.position_combo.currentText(),
             opacity=self.opacity_slider.value() / 100.0,
+            bpm_font_scale=self.bpm_font_scale_spin.value(),
+            show_graph=self.show_graph_check.isChecked(),
             graph_duration=float(self.graph_duration_spin.value()),
             show_map=self.show_map_check.isChecked(),
         )
