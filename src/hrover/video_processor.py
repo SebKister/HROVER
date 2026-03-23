@@ -77,11 +77,29 @@ class EncoderConfig:
     quality: str = "medium"
 
     def get_ffmpeg_args(self) -> list[str]:
-        """Return the ffmpeg codec and quality arguments."""
-        enc = ENCODERS[self.encoder]
-        return ["-c:v", enc["codec"]] + enc["quality"][self.quality]
+        """Return the ffmpeg codec and quality arguments.
 
+        Raises:
+            ValueError: If the encoder or quality setting is not supported.
+        """
+        try:
+            enc = ENCODERS[self.encoder]
+        except KeyError as exc:
+            supported_encoders = ", ".join(sorted(ENCODERS.keys()))
+            raise ValueError(
+                f"Unknown encoder '{self.encoder}'. Supported encoders: {supported_encoders}"
+            ) from exc
 
+        try:
+            quality_args = enc["quality"][self.quality]
+        except KeyError as exc:
+            supported_qualities = ", ".join(sorted(enc["quality"].keys()))
+            raise ValueError(
+                f"Unknown quality '{self.quality}' for encoder '{self.encoder}'. "
+                f"Supported qualities: {supported_qualities}"
+            ) from exc
+
+        return ["-c:v", enc["codec"]] + quality_args
 def process_video(
     video_path: str | Path,
     output_path: str | Path,
