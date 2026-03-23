@@ -60,6 +60,14 @@ def main(argv: list[str] | None = None):
         help="Seconds of HR history to show in graph (default: 60)",
     )
     parser.add_argument(
+        "--no-graph", action="store_true",
+        help="Show only the BPM text, without the scrolling HR graph",
+    )
+    parser.add_argument(
+        "--bpm-font-scale", type=float, default=1.8,
+        help="Font scale for the BPM number (default: 1.8)",
+    )
+    parser.add_argument(
         "--no-audio", action="store_true",
         help="Skip audio muxing (faster, but output has no audio)",
     )
@@ -149,6 +157,8 @@ def main(argv: list[str] | None = None):
         position=args.position,
         opacity=args.opacity,
         graph_duration=args.graph_duration,
+        show_graph=not args.no_graph,
+        bpm_font_scale=args.bpm_font_scale,
     )
     encoder_config = EncoderConfig(encoder=args.encoder, quality=args.quality, resolution=args.resolution)
 
