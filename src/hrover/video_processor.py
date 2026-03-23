@@ -235,6 +235,10 @@ def process_video(
         if ffmpeg_proc is not None:
             ffmpeg_proc.stdin.close()
             ffmpeg_proc.wait()
+            if ffmpeg_proc.returncode != 0:
+                raise RuntimeError(
+                    f"ffmpeg encoding failed with exit code {ffmpeg_proc.returncode}"
+                )
         if writer is not None:
             writer.release()
 
