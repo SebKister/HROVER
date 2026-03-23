@@ -155,7 +155,13 @@ def process_video(
     use_ffmpeg = shutil.which("ffmpeg") is not None
 
     if use_ffmpeg:
-        ffmpeg_proc = _start_ffmpeg_writer(temp_output, fps, width, height, encoder_config)
+        try:
+            ffmpeg_proc = _start_ffmpeg_writer(temp_output, fps, width, height, encoder_config)
+        except Exception as exc:
+            cap.release()
+            if temp_output.exists():
+                temp_output.unlink()
+            raise RuntimeError(f"Failed to start ffmpeg writer: {exc}") from exc
         writer = None
     else:
         print(
